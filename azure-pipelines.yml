@@ -1,0 +1,47 @@
+# PHP
+# Test and package your PHP project.
+# Add steps that run tests, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/php
+
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-18.04
+
+variables:
+  phpVersion: 7.2
+  composerVersion: 1.10.17
+
+steps:
+- script: |
+    sudo update-alternatives --set php /usr/bin/php$(phpVersion)
+    sudo update-alternatives --set phar /usr/bin/phar$(phpVersion)
+    sudo update-alternatives --set phpdbg /usr/bin/phpdbg$(phpVersion)
+    sudo update-alternatives --set php-cgi /usr/bin/php-cgi$(phpVersion)
+    sudo update-alternatives --set phar.phar /usr/bin/phar.phar$(phpVersion)
+    php -version
+  displayName: 'Use PHP version $(phpVersion)'
+
+- script: |
+    mysql --version
+    sudo service mysql start
+  displayName: 'MySQL Version'
+- task: MysqlDeploymentOnMachineGroup@1
+  inputs:
+    TaskNameSelector: 'InlineSqlTask'
+    SqlInline: 'source database/demo_sql.sql'
+    ServerName: 'localhost'
+    SqlUsername: 'root'
+    SqlPassword: 'root'
+
+- script: composer install --no-interaction --prefer-dist
+  displayName: 'composer install'
+
+- script: |
+    php artisan migrate --force
+  displayName: 'Running migrate'
+
+- script: |
+    vendor/bin/phpunit tests/Feature/DemoTestSeeder.php
+  displayName: 'Running Unit Tests'
